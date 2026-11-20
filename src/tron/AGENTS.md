@@ -13,6 +13,8 @@ Key components include: the main game class (`gGame`) managing game state, round
 
 The `gGame` class inherits from `nNetObject` for network synchronization. Game settings (`gGameSettings`) configure match parameters. The module coordinates between engine (physics), network (multiplayer), render (graphics), and UI (menus) layers.
 
+The SDL2 event filter in `gArmagetron.cpp` handles lifecycle events and shortcuts; key translation belongs to `su_GetSDLInput` after polling, not to the filter.
+
 ## Directory Structure
 
 ```

@@ -466,10 +466,8 @@ static void sg_DelayedActivation()
 
 #if SDL_VERSION_ATLEAST(2,0,0)
 static int filter(void *, SDL_Event *tEvent){
-    // SDL 1.2 conventions from here on: key repeats and text input dropped,
-    // keysyms renumbered, window events turned into the old activation events
-    if ( !sr_TranslateEvent( *tEvent ) )
-        return 0;
+    // Key translation happens after polling in su_GetSDLInput: backend
+    // event queues do not necessarily preserve edits made by this filter.
 #else
 int filter(const SDL_Event *tEvent){
 #endif

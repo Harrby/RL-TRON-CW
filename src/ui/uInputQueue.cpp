@@ -312,6 +312,12 @@ bool su_GetSDLInput(SDL_Event &tEvent,REAL &time){
         }
         sr_UnlockSDL();
         input_get=false;
+#if !defined(DEDICATED) && SDL_VERSION_ATLEAST(2,0,0)
+        // Some SDL backends do not preserve event-filter edits. Normalize
+        // after polling, before recording or indexing the legacy keymap.
+        if ( ret )
+            ret = sr_TranslateEvent( tEvent );
+#endif
     }
 
     su_markerRequired |= ret;

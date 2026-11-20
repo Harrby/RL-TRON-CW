@@ -494,7 +494,7 @@ public:
             return(false);
         }
 
-        if(sym>=0){
+        if(sym>=0 && sym<SDLK_NEWLAST){
             if(keymap[sym] &&
                     keymap[sym]->act==act &&
                     keymap[sym]->CheckPlayer(ePlayer)){
@@ -677,7 +677,7 @@ bool su_HandleEvent(SDL_Event &e, bool delayed ){
     default:
         break;
     }
-    if (sym>=0 && keymap[sym]){
+    if (sym>=0 && sym<SDLK_NEWLAST && keymap[sym]){
         REAL realpm=pm;
         if (keymap[sym]->act->type==uAction::uINPUT_ANALOG)
             pm*=ts*key_sensitivity;
