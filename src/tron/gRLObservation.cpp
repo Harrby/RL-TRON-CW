@@ -42,15 +42,27 @@ namespace RLObservation {
         return Point{right, ahead};
     }
 
+    // Convert local world units to continuous grid coords
+    static Point LocalToGrid(Point localPoint, double cropWidth)
+    {
+        const double cellsPerUnit = GRID_SIZE / cropWidth;
+        const double centre = GRID_SIZE / 2.0;
+
+        return Point{
+            centre + localPoint.x * cellsPerUnit,
+            centre - localPoint.y * cellsPerUnit
+        };
+    }
+
     Snapshot ReadCycleState(const gCycle& self, const gCycle* opponent)
     {
         Snapshot state{};
 
-        cosnt auto position = self.Position();
+        const auto position = self.Position();
         const auto heading = self.Direction();
 
-        state.selfPosition = Point{position.x, position.y}
-        state.selfHeading = Point{heading.x, heading.y}
+        state.selfPosition = Point{position.x, position.y};
+        state.selfHeading = Point{heading.x, heading.y};
 
         if (opponent != nullptr && opponent -> Alive())
         {
@@ -70,8 +82,31 @@ namespace RLObservation {
     // Build four occupancy layers covering a square of cropWidth world units
     Grid BuildLocalGrid(const Snapshot& state, double cropWidth)
     {
+        if (!std::isfinite(cropWidth) || cropWidth <= 0.0)
+        {
+            throw std::invalid_argument("Crop width must be finite and positive");
+        }
+        
         Grid grid{};
 
+        const Point forward = NormaliseHeading(state.selfHeading);
+
+        if (state.opponentAlive)
+        {
+            const Point local = WorldToLocal(state.opponentPosition, state.selfPosition, forward);
+            const Point cell = LocalToGrid(local, cropWidth);
+
+            // An opponent outside the crop must not appear on its border
+            if (cell.x >= 0.0 && cell.x < GRID_SIZE && cell.y >=0.0 && cell.y < GRID_SIZE)
+            {
+                const int column = static_cast<int>(std::floor(cell.x));
+                const int row = static_cast<int>(std::floor(cell.y));
+                const int channel = static_cast<int>(Channel::OpponentPosition);
+
+                const int index = channel * GRID_SIZE * GRID_SIZE + row * GRID_SIZE + column;
+                grid[index] = 1;
+            }
+        }
 
         return grid;
     }
