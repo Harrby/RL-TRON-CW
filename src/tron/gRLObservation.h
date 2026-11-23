@@ -4,6 +4,9 @@
 #include <array>
 #include <cstdint>
 #include <vector>
+#include "gCycle.h"
+
+class gCycle;
 
 namespace RLObservation {
 
@@ -11,10 +14,10 @@ constexpr int GRID_SIZE = 64;
 constexpr int CHANNEL_COUNT = 4;
 
 enum class Channel {
-    Boundary = 0,
-    OwnTrail = 1,
-    OpponentTrail = 2,
-    OpponentPosition = 3
+    Boundary = 0, //masks the actual "wall"
+    OwnTrail = 1, //masks the agents own trail 
+    OpponentTrail = 2, //masks the opponent's trail
+    OpponentPosition = 3 //masks the opponent's cycle
 };
 
 struct Point {
@@ -37,6 +40,9 @@ struct Snapshot {
     // Only currently active wall sections.
     std::vector<WallSegment> walls;
 };
+
+// Read cycle positions and heading. Wall collection is not included yet
+Snapshot ReadCycleState(const gCycle& self, const gCycle* opponent);
 
 using Grid = std::array<
     std::uint8_t,
