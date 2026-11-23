@@ -49,7 +49,7 @@ using Grid = std::array<
     CHANNEL_COUNT * GRID_SIZE * GRID_SIZE
 >;
 
-Grid BuildLocalGrid(const Snapshot& state, double cropWidth);
+Grid BuildLocalGrid(const Snapshot& state, double cropWidth, double forwardOffset);
 
 }
 

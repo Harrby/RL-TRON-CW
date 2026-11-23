@@ -43,14 +43,14 @@ namespace RLObservation {
     }
 
     // Convert local world units to continuous grid coords
-    static Point LocalToGrid(Point localPoint, double cropWidth)
+    static Point LocalToGrid(Point localPoint, double cropWidth, double forwardOffset)
     {
         const double cellsPerUnit = GRID_SIZE / cropWidth;
         const double centre = GRID_SIZE / 2.0;
 
         return Point{
             centre + localPoint.x * cellsPerUnit,
-            centre - localPoint.y * cellsPerUnit
+            centre - (localPoint.y - forwardOffset) * cellsPerUnit
         };
     }
 
@@ -80,7 +80,7 @@ namespace RLObservation {
     }
 
     // Build four occupancy layers covering a square of cropWidth world units
-    Grid BuildLocalGrid(const Snapshot& state, double cropWidth)
+    Grid BuildLocalGrid(const Snapshot& state, double cropWidth, double forwardOffset)
     {
         if (!std::isfinite(cropWidth) || cropWidth <= 0.0)
         {
@@ -94,7 +94,7 @@ namespace RLObservation {
         if (state.opponentAlive)
         {
             const Point local = WorldToLocal(state.opponentPosition, state.selfPosition, forward);
-            const Point cell = LocalToGrid(local, cropWidth);
+            const Point cell = LocalToGrid(local, cropWidth, forwardOffset);
 
             // An opponent outside the crop must not appear on its border
             if (cell.x >= 0.0 && cell.x < GRID_SIZE && cell.y >=0.0 && cell.y < GRID_SIZE)

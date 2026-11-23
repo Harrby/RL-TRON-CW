@@ -51,6 +51,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "gPlatformEvents.h"
 #include "eLagCompensation.h"
 #include "gArena.h"
+#include "gRLObservation.h"
 
 #include "tMath.h"
 #include <stdlib.h>
@@ -60,6 +61,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <memory>
 #include <map>
 #include <string>
+#include <vector>
 
 #ifndef DEDICATED
 #define DONTDOIT
@@ -4749,7 +4751,7 @@ void gCycle::Render(const eCamera *cam){
         float raySize = RLConfig::RAY_SIZE;
         int n_rays = RLConfig::N_RAYS;
 
-        float* sensorValues = new float[n_rays];
+        std::vector<float> sensorValues(n_rays, 0.0f);
 
         // Cast a ray for each of our rays.
         for (int i=0; i< n_rays; i++) {
@@ -4787,19 +4789,22 @@ void gCycle::Render(const eCamera *cam){
                 1.*std::sin(theta) + 0.*std::cos(theta)
             );
 
-            // Full beam
-            glColor3f(0.6,0.6,0.6); // grey
-            BeginLines();
-            glVertex3f(0., 0., 0.);
-            glVertex3f(drawVec.x * raySize, drawVec.y * raySize, 0.);
-            RenderEnd();
+            if (RLConfig::DEBUG_DRAW_RAYS)
+            {
+                // Full beam
+                glColor3f(0.6,0.6,0.6); // grey
+                BeginLines();
+                glVertex3f(0., 0., 0.);
+                glVertex3f(drawVec.x * raySize, drawVec.y * raySize, 0.);
+                RenderEnd();
 
-            glColor3f(1., 1., 0.); // yellow
-            // % beam
-            BeginLines();
-            glVertex3f(0., 0., 0.);
-            glVertex3f(drawVec.x * raySize*t, drawVec.y * raySize*t, 0.);
-            RenderEnd();
+                glColor3f(1., 1., 0.); // yellow
+                // % beam
+                BeginLines();
+                glVertex3f(0., 0., 0.);
+                glVertex3f(drawVec.x * raySize*t, drawVec.y * raySize*t, 0.);
+                RenderEnd();
+            }
 
             sensorValues[i] = t;
         }
@@ -4813,6 +4818,135 @@ void gCycle::Render(const eCamera *cam){
 
         glColor3f(1,1,1);
 
+        //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+        //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        //           Grid rendering          ~
+        //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+        if (RLConfig::DEBUG_DRAW_LOCAL_GRID && cam && cam->Center() == this)
+        {
+            // Grid configuration
+            const float occupiedHeight = RLConfig::DEBUG_GRID_HEIGHT;
+            const int gridSize = RLObservation::GRID_SIZE;
+            const float width = RLConfig::LOCAL_GRID_WIDTH;
+            const float forwardOffset = RLConfig::LOCAL_GRID_FORWARD_OFFSET;
+            const float cellSize = width / gridSize;
+            const float halfWidth = width / 2.0f;
+
+            const float minAhead = forwardOffset - halfWidth;
+            const float maxAhead = forwardOffset + halfWidth;
+            const float minRight = -halfWidth;
+            const float maxRight = halfWidth;
+
+            // Existing rendering transform scales positions by 0.5
+            const float scale = 2.0f;
+
+            // Find the first living opponent (two-player prototype)
+            const gCycle* opponent = nullptr;
+
+            if (this->Grid())
+            {
+                const auto& objects = this->Grid()->GameObjects();
+
+                for (int i = 0; i < objects.Len(); ++i)
+                {
+                    const gCycle* candidate = dynamic_cast<const gCycle*>(objects(i));
+
+                    if (candidate && candidate != this && candidate->Alive())
+                    {
+                        opponent = candidate;
+                        break;
+                    }
+                }
+            }
+
+            // Generate the actual RL observation
+            const auto snapshot = RLObservation::ReadCycleState(*this, opponent);
+            const auto localGrid = RLObservation::BuildLocalGrid(snapshot, width, forwardOffset);
+
+            // Colours for the four channels
+            const float colours[4][3] = {
+                {1.0f, 0.2f, 0.2f}, // Boundaries: red
+                {0.2f, 0.4f, 1.0f}, // Own trail: blue
+                {1.0f, 0.5f, 0.0f}, // Opponent trail: orange
+                {1.0f, 1.0f, 0.0f}  // Opponent head: yellow
+            };
+
+            glPushAttrib(GL_ENABLE_BIT | GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_CURRENT_BIT);
+
+            glDisable(GL_CULL_FACE);
+            glDisable(GL_TEXTURE_2D);
+            glDisable(GL_LIGHTING);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glDepthMask(GL_FALSE);
+
+            // =========================================
+            // 1. Draw occupied cells
+            // =========================================
+
+            for (int channel = 0; channel < 4; ++channel)
+            {
+                glColor4f(colours[channel][0], colours[channel][1], colours[channel][2], 0.65f);
+
+                BeginQuads();
+
+                for (int row = 0; row < gridSize; ++row)
+                {
+                    for (int col = 0; col < gridSize; ++col)
+                    {
+                        const int index = channel * gridSize * gridSize + row * gridSize + col;
+
+                        if (localGrid[index] == 0)
+                            continue;
+
+                        // Convert grid cell back to local coordinates
+                        const float aheadFront = maxAhead - row * cellSize;
+                        const float aheadBack = aheadFront - cellSize;
+                        const float rightLeft = minRight + col * cellSize;
+                        const float rightRight = rightLeft + cellSize;
+
+                        // Draw the occupied cell
+                        glVertex3f(scale * aheadFront, -scale * rightLeft, occupiedHeight);
+                        glVertex3f(scale * aheadFront, -scale * rightRight, occupiedHeight);
+                        glVertex3f(scale * aheadBack, -scale * rightRight, occupiedHeight);
+                        glVertex3f(scale * aheadBack, -scale * rightLeft, occupiedHeight);
+                    }
+                }
+
+                RenderEnd();
+            }
+
+            // =========================================
+            // 2. Draw grid lines
+            // =========================================
+
+            glColor3f(0.0f, 1.0f, 1.0f); // Cyan
+            BeginLines();
+
+            for (int i = 0; i <= gridSize; ++i)
+            {
+                const float t = static_cast<float>(i) / gridSize;
+
+                const float ahead = minAhead + t * width;
+                const float right = minRight + t * width;
+
+                // Lines across the grid
+                glVertex3f(scale * ahead, -scale * minRight, occupiedHeight);
+                glVertex3f(scale * ahead, -scale * maxRight, occupiedHeight);
+
+                // Lines along the grid
+                glVertex3f(scale * minAhead, -scale * right, occupiedHeight);
+                glVertex3f(scale * maxAhead, -scale * right, occupiedHeight);
+            }
+
+            RenderEnd();
+
+            // Restore OpenGL state
+            glPopAttrib();
+        }
 
         //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
