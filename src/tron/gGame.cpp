@@ -24,7 +24,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 ***************************************************************************
 
 */
-
+// #include "gCycleMovement.h"
+#include "thirdparty/nlohmann/json.hpp"
+#include "RL_config.h"
 #include "gStuff.h"
 #include "eSound.h"
 #include "eGrid.h"
@@ -95,6 +97,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifndef DEDICATED
 #include "rSDL.h"
 #include <SDL_thread.h>
+
+using json = nlohmann::json;
 
 #ifdef DEBUG
 #ifndef WIN32
@@ -3723,6 +3727,8 @@ static tSettingItem<REAL> sg_timestepMaxConf( "TIMESTEP_MAX", sg_timestepMax );
 static int sg_timestepMaxCount = 10;
 static tSettingItem<int> sg_timestepMaxCountConf( "TIMESTEP_MAX_COUNT", sg_timestepMaxCount );
 
+
+
 void gGame::Timestep(REAL time,bool cam){
 #ifdef DEBUG
     tMemManBase::Check();
@@ -3752,10 +3758,81 @@ void gGame::Timestep(REAL time,bool cam){
     }
 
     // chop
-    for(int i=1;i<=number_of_steps;i++)
-    {
-        REAL stepTime = lt + i * dt/number_of_steps;
-        s_Timestep(grid, stepTime, cam);
+    
+    // Get the player
+    REAL transitionRate = RLConfig::TRANSITION_RATE; // 0.5 transitions per second
+    ePlayer *player = ePlayer::PlayerConfig(0);
+    // std::cout << "TIMESTEP:" << time   << " " <<  floor(time) - floor(lastTimeTimestep) << std::endl;
+    
+    // Only perform a transition every so often so to not fry the computer when large models used.
+    // Just set this condition to TRUE if you want to do it every update and weep.
+    if (floor(time*transitionRate) - floor(lastTimeTimestep*transitionRate)) {
+        gCycle *cycle = dynamic_cast<gCycle *>(player->netPlayer->Object());
+        if (player && player->netPlayer && cycle) {
+            // std::cout << "BEFORE:" << cycle->Position().x << ", " << cycle->Position().y << std::endl;
+            //--------------------------------------//
+            //       Get an action from python      //
+            //--------------------------------------//
+            // 1) Get the current state
+            std::vector<float> sensorValues = cycle->getSensorValues();
+
+            // Convert to json
+            json msg;
+            msg["mode"] = "GET_ACTION";
+            msg["sensors"] = sensorValues;
+            std::string msgStr = msg.dump();
+
+
+            // 2) Send state to agent, and get the action in return.
+            int action = send_message(msgStr.c_str());
+
+            //--------------------------------------//
+            //       Send reward back to python     //
+            //--------------------------------------//
+            // std::cout << "C++ Action=" << action << std::endl;
+
+            // Make that action
+            // There's other actions too like brake.
+            if (action == 0) {
+                // Do nothing
+            }else if (action == 1) {
+                cycle->Act(&gCycle::se_turnLeft,1);
+            }else if (action == 2) {
+                cycle->Act(&gCycle::se_turnRight, 1);
+            }
+
+            
+            
+            //------------------------------------------
+            // Make the transition
+            for(int i=1;i<=number_of_steps;i++) {
+                REAL stepTime = lt + i * dt/number_of_steps;
+                s_Timestep(grid, stepTime, cam);
+            }
+
+
+            // cycle might've been deleted at this point
+            if (cycle) {
+                // Get reward (reward= 1 if the agent is alive after the transition, -10 if not)
+                bool isAlive = cycle->Alive();
+                float reward = isAlive ? 1. : -10.;
+
+                json msg;
+                msg["mode"] = "TRANSITION_REWARD";
+                msg["reward"] = reward;
+                std::string msgStr = msg.dump();
+                send_message(msgStr.c_str());
+                // std::cout << "Reward=" << reward << std::endl;
+                // send_message(  )
+            }
+        }
+
+    }else {
+        for(int i=1;i<=number_of_steps;i++)
+        {
+            REAL stepTime = lt + i * dt/number_of_steps;
+            s_Timestep(grid, stepTime, cam);
+        }
     }
 }
 

@@ -4534,6 +4534,80 @@ void gCycleWallsDisplayListManager::RenderAll( eCamera const * camera, gCycle * 
     RenderFloorEffects( camera, cycle );
 }
 
+
+
+
+
+
+
+
+
+
+// getSensorValues()
+// Collects the sensor values in the same way as before but without rendering them
+std::vector<float> gCycle::getSensorValues() {
+    // Ray attributes
+    float raySize = RLConfig::RAY_SIZE;
+    int n_rays = RLConfig::N_RAYS;
+
+    // float* sensorValues = new float[n_rays];
+    std::vector<float> sensorValues(n_rays);
+
+    // Cast a ray for each of our rays.
+    for (int i=0; i< n_rays; i++) {
+        // Choose theta to range from [-angle/2,angle/2], and get that fan distribution effect
+        float ray_placement = ((static_cast<float>(i) +1.)/(static_cast<float>(n_rays)+1.)) - 0.5; 
+        float theta = ray_placement * RLConfig::FAN_ANGLE; // Amount to rotate the ray 
+
+        //--------------- Sensor collision----------------
+        // 1. Rotate the ray. 
+        eCoord rayStart =  pos;
+        eCoord rayVec(
+            dir.x*std::cos(theta) - dir.y*std::sin(theta),
+            dir.x*std::sin(theta) + dir.y*std::cos(theta)
+        ); // rayVec=dir.rotate(theta) about y axis
+        
+
+        // 2. Create sensor
+        eSensor sensor(this, rayStart, rayVec);
+        sensor.detect(raySize);
+        // I have no idea why this works they have a weird raycast implementation that changes when its double the length, but this just looked visually correct.
+        float t = std::min(2.0f * sensor.hit, raySize)/ raySize;
+
+        sensorValues[i] = t;
+    }
+    
+
+
+    return sensorValues;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+static int timestep = 0;
 void gCycle::Render(const eCamera *cam){
     /*
     // for use when there's rendering problems on one specific occasion
@@ -4803,12 +4877,22 @@ void gCycle::Render(const eCamera *cam){
 
             sensorValues[i] = t;
         }
+        // std::cout << "COUNT" << count << std::endl;
+        // std::cout << "SENSOR VALUES:" << std::endl;
+        // for (int i=0; i<n_rays; i++) {
+        //     std::cout << sensorValues[i] << " ";
+        // }  
+        // std::cout << std::endl;
 
-        std::cout << "SENSOR VALUES:" << std::endl;
-        for (int i=0; i<n_rays; i++) {
-            std::cout << sensorValues[i] << " ";
-        }  
-        std::cout << std::endl;
+        count = count + 1;
+
+        if (count % 1000 == 0) {
+            // move player every so often
+            // std::cout << pos << std::endl;
+            // Act(&gCycle::se_turnRight, 1);
+
+            // std::cout << pos << std::endl;
+        }
 
 
         glColor3f(1,1,1);

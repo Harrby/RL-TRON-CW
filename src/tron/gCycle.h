@@ -29,7 +29,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define ArmageTron_CYCLE_H
 
 //#define USE_HEADLIGHT
-
+#include <vector>
 #include "gStuff.h"
 //#include "eSound.h"
 //#include "rTexture.h"
@@ -327,7 +327,7 @@ public:
     const eTempEdge* Edge();
     const gPlayerWall* CurrentWall();
     // const gPlayerWall* LastWall();
-
+    std::vector<float> getSensorValues();
 #ifndef DEDICATED
     virtual void Render(const eCamera *cam);
 
