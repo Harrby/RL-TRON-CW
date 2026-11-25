@@ -24,7 +24,19 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 ***************************************************************************
 
 */
+#include "RL_config.h"
+// #include <chrono>
+// #include <iostream>
+// #include <thread>
 
+// #include <sys/socket.h>
+// #include <netinet/in.h>
+// #include <unistd.h>
+// #include <cstring>
+// #include <signal.h>
+// #include <arpa/inet.h>
+
+#include <thread>
 #include "gStuff.h"
 #include "tSysTime.h"
 #include "tDirectories.h"
@@ -65,6 +77,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "rRender.h"
 #include "rSDL.h"
 #endif
+
+
+
+
 
 // data structure for command line parsing
 class gMainCommandLineAnalyzer: public tCommandLineAnalyzer
@@ -466,10 +482,8 @@ static void sg_DelayedActivation()
 
 #if SDL_VERSION_ATLEAST(2,0,0)
 static int filter(void *, SDL_Event *tEvent){
-    // SDL 1.2 conventions from here on: key repeats and text input dropped,
-    // keysyms renumbered, window events turned into the old activation events
-    if ( !sr_TranslateEvent( *tEvent ) )
-        return 0;
+    // Key translation happens after polling in su_GetSDLInput: backend
+    // event queues do not necessarily preserve edits made by this filter.
 #else
 int filter(const SDL_Event *tEvent){
 #endif
@@ -917,7 +931,7 @@ int main(int argc,char **argv){
 #endif
 
             if (sr_InitDisplay()){
-
+                std::thread pythonProcess; // Declare the process outside scope so it can be handled in an error case.
                 try
                 {
                     //std::cout << "init disp\n";
@@ -947,9 +961,34 @@ int main(int argc,char **argv){
                     // connect() (or right away with a #ws:// fragment); never returns
                     gBrowserStart();
 #endif
-                    
-                    sg_SinglePlayerGame(); // MainMenu(); // Replace MainMenu with this to skip the main menu screen.
+                    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ IPC SETUP ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                    // Spawn the python process
+                    std::string interpreterPath;
+                    #ifdef WIN32 
+                        interpreterPath = "src/tron/python/.venv/Scripts/python"; // the path is different on windows to be annoying.
+                    #else 
+                        interpreterPath = "src/tron/python/.venv/bin/python";
+                    #endif 
+                    interpreterPath += " src/tron/python/rl_agent.py";
+                    std::cout << "INTERPRETER PATH:" << interpreterPath << std::endl;
 
+                    // Spawn the python process to run asynchronously to the C++ process.
+                    pythonProcess = std::thread([interpreterPath] {
+                        std::system(interpreterPath.c_str());
+                    });
+
+                    // slightly concerned about a race condition from waiting for weights to load in so this might help.
+                    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                    send_message("hello");
+
+                    sg_SinglePlayerGame(); // MainMenu(); // Replace MainMenu with this to skip the main menu screen.
+                    
+                    //##### IPC CLEANUP #####\\
+                    // Terminate python process when the game has finished
+                    send_message("EXIT");
+                    pythonProcess.join();
+                    
+                    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
                     // remove all players
                     for ( int i = se_PlayerNetIDs.Len()-1; i>=0; --i )
@@ -961,6 +1000,11 @@ int main(int argc,char **argv){
                 }
                 catch (tException const & e)
                 {
+                    //##### IPC CLEANUP IF AN EXCEPTION OCCURS #####\\
+                    // Terminate python process when the game has finished
+                    send_message("EXIT");
+                    pythonProcess.join();
+
                     gLogo::SetDisplayed(true);
                     uMenu::SetIdle(NULL);
                     sr_con.autoDisplayAtSwap=false;
@@ -1051,6 +1095,7 @@ static tConfItemFunc st_Dummy11("MASTER_SAVE_INTERVAL", &st_Dummy);
 static tConfItemFunc st_Dummy12("MASTER_IDLE", &st_Dummy);
 static tConfItemFunc st_Dummy13("MASTER_PORT", &st_Dummy);
 #endif
+
 
 
 

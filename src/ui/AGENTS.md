@@ -15,6 +15,8 @@ The menu system supports multiple item types: basic items, exits, selections (dr
 
 The layer integrates with the render system for displaying menus and with the console system for text input/output.
 
+SDL2 live events are normalized after retrieval in `su_GetSDLInput`, as event-filter edits may not survive the backend queue. Playback events already use legacy key numbers. Binding capture and dispatch check the keymap bounds.
+
 ## Directory Structure
 
 ```
