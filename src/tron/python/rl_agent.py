@@ -1,6 +1,8 @@
 import sys
 import socket 
 import json
+from inital_Q import DoubleQNetwork, DontCrashAgent
+
 
 # An agent that just turns right if it gets close to a wall
 class DumbAgent():
@@ -19,6 +21,7 @@ class DumbAgent():
 
 
 if __name__ == "__main__":
+    model = DontCrashAgent()
     # PORT: 9999
     server = socket.socket()
     # Allow reuse of the address after shutdown to make restarting easier
@@ -27,7 +30,7 @@ if __name__ == "__main__":
     server.listen()
 
     #---------- Load in model --------------
-    model = DumbAgent()
+    model = DontCrashAgent()
 
 
     transitions = [] ; max_transition_size = 20
@@ -47,18 +50,19 @@ if __name__ == "__main__":
                     if obj["mode"] == "GET_ACTION":
                         action = model.get_action(obj)
 
-                        state = obj["sensors"]; reward = None; # Reward gets defined when TRANSITION_REWARD is received.
+                        #state = obj["sensors"]; reward = None; # Reward gets defined when TRANSITION_REWARD is received.
 
-                        transitions.append([state, reward])
+                        #transitions.append([state, reward])
 
-                        client.send(str(action).encode("utf-8"))
+                        client.sendall(str(action).encode("utf-8"))
                         # print("transitions=", transitions)
                     elif obj["mode"] == "TRANSITION_REWARD": # This will always be received after a GET_ACTION
-                        reward = obj["reward"]
+                        #reward = obj["reward"]
 
-                        transitions[-1][1] = reward
+                        #transitions[-1][1] = reward
 
                         # print("python r=", reward)
+                        client.sendall(b"ACK")
                     else:
                         client.send("MESSAGE RECEIVED".encode("utf-8"))
                 except Exception as e:
