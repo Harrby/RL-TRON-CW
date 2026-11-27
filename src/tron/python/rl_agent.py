@@ -1,7 +1,7 @@
 import sys
 import socket 
 import json
-from inital_Q import DoubleQNetwork, DontCrashAgent
+from inital_Q import DoubleQNetwork
 import traceback
 import time
 from pathlib import Path
@@ -27,7 +27,7 @@ class DumbAgent():
 
 
 if __name__ == "__main__":
-    model = DontCrashAgent()
+    model = DumbAgent()
     # PORT: 9999
     server = socket.socket()
     # Allow reuse of the address after shutdown to make restarting easier
