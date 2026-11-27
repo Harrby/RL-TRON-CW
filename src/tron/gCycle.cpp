@@ -4556,7 +4556,9 @@ std::vector<float> gCycle::getSensorValues() {
     // Cast a ray for each of our rays.
     for (int i=0; i< n_rays; i++) {
         // Choose theta to range from [-angle/2,angle/2], and get that fan distribution effect
-        float ray_placement = ((static_cast<float>(i) +1.)/(static_cast<float>(n_rays)+1.)) - 0.5; 
+        float ray_placement = n_rays > 1 ? static_cast<float>(i) / static_cast<float>(n_rays-1)- 0.5f : 0.0f;
+        
+        //((static_cast<float>(i) +1.)/(static_cast<float>(n_rays)+1.)) - 0.5; 
         float theta = ray_placement * RLConfig::FAN_ANGLE; // Amount to rotate the ray 
 
         //--------------- Sensor collision----------------
@@ -4828,7 +4830,8 @@ void gCycle::Render(const eCamera *cam){
         // Cast a ray for each of our rays.
         for (int i=0; i< n_rays; i++) {
             // Choose theta to range from [-angle/2,angle/2], and get that fan distribution effect
-            float ray_placement = ((static_cast<float>(i) +1.)/(static_cast<float>(n_rays)+1.)) - 0.5; 
+            float ray_placement = n_rays > 1 ? static_cast<float>(i) / static_cast<float>(n_rays - 1) - 0.5f: 0.0f;
+ 
             float theta = ray_placement * RLConfig::FAN_ANGLE; // Amount to rotate the ray 
 
             //--------------- Sensor collision----------------

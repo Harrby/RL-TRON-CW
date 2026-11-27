@@ -19,8 +19,8 @@
 // Constants
 namespace RLConfig {
     const float RAY_SIZE = 50.0;     // The length of the raycast sensors for the agent
-    const int N_RAYS = 5;            // The number of raycast sensors used.
-    const float FAN_ANGLE = PI/2.;    // The range the sensors will be distributed at.
+    const int N_RAYS = 7;            // The number of raycast sensors used.
+    const float FAN_ANGLE = PI;    // The range the sensors will be distributed at.
     
     const int PORT = 9999;
     const char* const IP_ADDR = "127.0.0.1";

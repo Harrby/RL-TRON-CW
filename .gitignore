@@ -139,3 +139,9 @@ wget-log*
 # code coverage artifacts
 /.coverage_available
 /coverage
+
+
+
+# saved model checkpoints
+/src/tron/python/checkpoints/
+/src/tron/python/.venv/
